@@ -14,12 +14,22 @@ layer of `target_follow_v2.py` (`setup`, `_apply_signed_pwm`, `stopcar`, `diff_d
 Parameters (ROS): `wheel_base_m` (0.12 — measure; the old script used 0.15), `max_lin`,
 `max_ang` (define the `cmd ∈ [-1, 1]` normalisation; calibrate, design section 7.2),
 `min_pwm`, `max_pwm`, `deadband`, `deadband_cmd`, `left_dir_sign`, `right_dir_sign`,
-`swap_motor_channels`, `watchdog_s`, `fake_hardware`.
+`watchdog_s`, `fake_hardware`.
 
-`swap_motor_channels` (default `true`) says which half of the H-bridge drives which wheel:
-on this chassis group A (`ENA`/`IN1`-`IN2`) is wired to the **right** wheel and group B
-(`ENB`/`IN3`-`IN4`) to the **left** one. With the groups the other way round `linear.x`
-still looks right but the turn sign is inverted — that is how it was diagnosed on the Pi.
+### The robot drives tail-first, and that is correct
+
+The tracker's "forward" is the chassis **tail**: the model's heading, as `psi0` defines it,
+is the tail direction. So `linear.x > 0` drives the robot tail-first and `angular.z > 0`
+turns it CCW. A unicycle driven backwards is still a unicycle — the kinematics the tracker
+closes the loop on are unaffected, and runs recorded this way are valid.
+
+Keep **`left_dir_sign = right_dir_sign = +1`** and the H-bridge groups **as wired**
+(A = `ENA`/`IN1`-`IN2` = left, B = `ENB`/`IN3`-`IN4` = right). Two corrections are
+tempting here and they must not be stacked: flipping both dir signs to `-1` makes the robot
+run nose-first but inverts the turn sign as well, and exchanging the two H-bridge groups
+inverts the turn sign a second time — together they cancel and leave `linear.x` reversed
+against the model, which is the one configuration that looks plausible on the bench and is
+wrong in the arena.
 
 The `cmd_vel` stream uses BEST_EFFORT / KEEP_LAST(1) QoS (`CMD_QOS` in `base_node.py`,
 matched by `ra_embodied.qos.CMD_QOS`): reliable delivery of a 50 Hz sampled signal only
@@ -35,6 +45,7 @@ Vicon, no numpy-heavy code. Without the GPIO modules the node runs with `FakeHar
 ```bash
 # on the Pi (same ROS_DOMAIN_ID as the PC)
 ros2 run osoyoo_base base_node
-ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{linear: {x: 0.15}}"   # must move toward subject +x
-ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{angular: {z: 0.5}}"  # must turn CCW (to its left)
+ros2 param get /osoyoo_base left_dir_sign && ros2 param get /osoyoo_base right_dir_sign   # both must be 1
+ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{linear: {x: 0.15}}"   # tail-first, toward subject +x
+ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{angular: {z: 0.5}}"   # must turn CCW
 ```

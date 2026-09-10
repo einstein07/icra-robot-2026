@@ -17,8 +17,8 @@ from osoyoo_base.motors import (  # noqa: E402
     FakeHardware,
     MotorParams,
     cmd_to_pwm,
+    custom_speed,
     diff_drive_mix,
-    wheel_channels,
 )
 
 
@@ -38,15 +38,27 @@ def test_diff_drive_mix_and_pwm_map():
     assert d == -1 and pwm == p.max_pwm
 
 
-def test_wheel_channels_swap():
-    """This chassis is wired A=right / B=left; without the swap the turn sign inverts."""
+def test_dir_signs_stay_positive_and_unstacked():
+    """The robot drives tail-first by design: both signs +1, groups as wired.
+
+    Flipping both signs to -1 runs it nose-first but inverts the turn sign too, and
+    exchanging the H-bridge groups inverts it back - the stacked pair leaves linear.x
+    reversed with respect to the tracker's model.  Pin the convention here.
+    """
     p = MotorParams()
-    assert p.swap_motor_channels is True
-    assert wheel_channels("left", p) == (p.enb, p.in3, p.in4)
-    assert wheel_channels("right", p) == (p.ena, p.in1, p.in2)
-    straight = MotorParams(swap_motor_channels=False)
-    assert wheel_channels("left", straight) == (p.ena, p.in1, p.in2)
-    assert wheel_channels("right", straight) == (p.enb, p.in3, p.in4)
+    assert p.left_dir_sign == 1 and p.right_dir_sign == 1
+    assert not hasattr(p, "swap_motor_channels"), "the group swap must not come back"
+
+    hw = FakeHardware(p)
+    custom_speed(hw, *diff_drive_mix(0.15, 0.0, p), p)          # linear.x > 0
+    assert hw.left[0] == 1 and hw.right[0] == 1                 # both wheels forward
+    custom_speed(hw, *diff_drive_mix(0.0, 1.0, p), p)           # angular.z > 0 -> CCW
+    assert hw.left[0] == -1 and hw.right[0] == 1
+
+    flipped = MotorParams(left_dir_sign=-1, right_dir_sign=-1)
+    hw = FakeHardware(flipped)
+    custom_speed(hw, *diff_drive_mix(0.0, 1.0, flipped), flipped)
+    assert hw.left[0] == 1 and hw.right[0] == -1                # the turn sign it inverts
 
 
 @pytest.fixture
