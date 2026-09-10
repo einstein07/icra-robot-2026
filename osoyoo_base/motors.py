@@ -10,7 +10,10 @@ Conventions
     otherwise the PWM is ``MIN_PWM + (MAX_PWM - MIN_PWM) * |cmd|``.  ``LEFT_DIR_SIGN`` /
     ``RIGHT_DIR_SIGN`` flip a wheel whose wiring runs backwards; confirm with a ``+0.2``
     linear-only Twist (the robot must move toward its Vicon subject +x after the psi0
-    correction, design section 6).
+    correction, design section 6).  ``swap_motor_channels`` says which H-bridge half drives
+    which wheel: this chassis has group A (``ena``/``in1``-``in2``) on the RIGHT wheel and
+    group B (``enb``/``in3``-``in4``) on the LEFT one, so it defaults to ``True``; confirm
+    with a ``+0.5`` angular-only Twist (the robot must turn CCW / to its left).
 """
 
 from __future__ import annotations
@@ -45,13 +48,18 @@ class MotorParams:
     left_dir_sign: int = 1
     right_dir_sign: int = 1
     pwm_freq_hz: int = 60
-    # PCA9685 channels / BCM pins of the original wiring
+    # PCA9685 channels / BCM pins of the original wiring: group A = ena/in1-in2,
+    # group B = enb/in3-in4
     ena: int = 0
     enb: int = 1
     in1: int = 23
     in2: int = 24
     in3: int = 27
     in4: int = 22
+    # Group A drives the RIGHT wheel and group B the LEFT one on this chassis (confirmed on
+    # the Pi: without the swap linear.x was fine but the turn sign was inverted, which is
+    # exactly what exchanging the two wheels does).  False for a robot wired A=left, B=right.
+    swap_motor_channels: bool = True
 
 
 class FakeHardware:
@@ -87,6 +95,20 @@ class FakeHardware:
         self.calls.append(("cleanup", ()))
 
 
+def wheel_channels(side: str, params: MotorParams) -> tuple[int, int, int]:
+    """``(enable_channel, dir_pin_a, dir_pin_b)`` of the H-bridge half driving ``side``.
+
+    Group A is ``ena``/``in1``-``in2``, group B is ``enb``/``in3``-``in4``.  With
+    ``swap_motor_channels`` (the confirmed wiring of this chassis) the left wheel sits on
+    group B and the right wheel on group A; the logical ``"left"``/``"right"`` naming of
+    :func:`custom_speed` and of the ROS topics is unaffected.
+    """
+    group_a = (params.ena, params.in1, params.in2)
+    group_b = (params.enb, params.in3, params.in4)
+    left, right = (group_b, group_a) if params.swap_motor_channels else (group_a, group_b)
+    return left if side == "left" else right
+
+
 class PiHardware:  # pragma: no cover - hardware only
     """The original PCA9685 + GPIO layer of target_follow_v2.py."""
 
@@ -101,11 +123,7 @@ class PiHardware:  # pragma: no cover - hardware only
         self.stop()
 
     def set_wheel(self, side: str, direction: int, pwm: int) -> None:
-        p = self.params
-        if side == "left":
-            ena, pin_a, pin_b = p.ena, p.in1, p.in2
-        else:
-            ena, pin_a, pin_b = p.enb, p.in3, p.in4
+        enable, pin_a, pin_b = wheel_channels(side, self.params)
         if direction > 0:
             GPIO.output(pin_a, GPIO.HIGH)
             GPIO.output(pin_b, GPIO.LOW)
@@ -115,7 +133,7 @@ class PiHardware:  # pragma: no cover - hardware only
         else:
             GPIO.output(pin_a, GPIO.LOW)
             GPIO.output(pin_b, GPIO.LOW)
-        self.pwm.set_pwm(ena, 0, int(max(0, min(4095, pwm))))
+        self.pwm.set_pwm(enable, 0, int(max(0, min(4095, pwm))))
 
     def stop(self) -> None:
         for pin in (self.params.in1, self.params.in2, self.params.in3, self.params.in4):

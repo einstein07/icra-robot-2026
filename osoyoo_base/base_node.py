@@ -40,6 +40,7 @@ class OsoyooBase(Node):
         self.declare_parameter("deadband_cmd", defaults.deadband_cmd)
         self.declare_parameter("left_dir_sign", defaults.left_dir_sign)
         self.declare_parameter("right_dir_sign", defaults.right_dir_sign)
+        self.declare_parameter("swap_motor_channels", defaults.swap_motor_channels)
         self.params = MotorParams(
             wheel_base_m=float(self.get_parameter("wheel_base_m").value),
             max_lin=float(self.get_parameter("max_lin").value),
@@ -50,6 +51,7 @@ class OsoyooBase(Node):
             deadband_cmd=float(self.get_parameter("deadband_cmd").value),
             left_dir_sign=int(self.get_parameter("left_dir_sign").value),
             right_dir_sign=int(self.get_parameter("right_dir_sign").value),
+            swap_motor_channels=bool(self.get_parameter("swap_motor_channels").value),
         )
         self.hw = hardware if hardware is not None else setup(self.params, force_fake=bool(self.get_parameter("fake_hardware").value))
         self.watchdog_s = float(self.get_parameter("watchdog_s").value)
@@ -65,7 +67,8 @@ class OsoyooBase(Node):
         self.create_timer(1.0 / float(self.get_parameter("watchdog_rate_hz").value), self.watchdog)
         self.get_logger().info(
             f"osoyoo_base ready ({type(self.hw).__name__}) wheel_base={self.params.wheel_base_m} "
-            f"max_lin={self.params.max_lin} max_ang={self.params.max_ang} watchdog={self.watchdog_s}s"
+            f"max_lin={self.params.max_lin} max_ang={self.params.max_ang} watchdog={self.watchdog_s}s "
+            f"swap_motor_channels={self.params.swap_motor_channels}"
         )
 
     # ------------------------------------------------------------------ callbacks

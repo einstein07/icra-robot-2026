@@ -13,7 +13,13 @@ from geometry_msgs.msg import Twist  # noqa: E402
 from std_msgs.msg import Bool, Float64MultiArray  # noqa: E402
 
 from osoyoo_base.base_node import OsoyooBase  # noqa: E402
-from osoyoo_base.motors import FakeHardware, MotorParams, cmd_to_pwm, diff_drive_mix  # noqa: E402
+from osoyoo_base.motors import (  # noqa: E402
+    FakeHardware,
+    MotorParams,
+    cmd_to_pwm,
+    diff_drive_mix,
+    wheel_channels,
+)
 
 
 def test_diff_drive_mix_and_pwm_map():
@@ -30,6 +36,17 @@ def test_diff_drive_mix_and_pwm_map():
     assert d == 1 and p.min_pwm < pwm < p.max_pwm
     d, pwm = cmd_to_pwm(-1.0, p)
     assert d == -1 and pwm == p.max_pwm
+
+
+def test_wheel_channels_swap():
+    """This chassis is wired A=right / B=left; without the swap the turn sign inverts."""
+    p = MotorParams()
+    assert p.swap_motor_channels is True
+    assert wheel_channels("left", p) == (p.enb, p.in3, p.in4)
+    assert wheel_channels("right", p) == (p.ena, p.in1, p.in2)
+    straight = MotorParams(swap_motor_channels=False)
+    assert wheel_channels("left", straight) == (p.ena, p.in1, p.in2)
+    assert wheel_channels("right", straight) == (p.enb, p.in3, p.in4)
 
 
 @pytest.fixture

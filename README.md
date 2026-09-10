@@ -14,7 +14,12 @@ layer of `target_follow_v2.py` (`setup`, `_apply_signed_pwm`, `stopcar`, `diff_d
 Parameters (ROS): `wheel_base_m` (0.12 — measure; the old script used 0.15), `max_lin`,
 `max_ang` (define the `cmd ∈ [-1, 1]` normalisation; calibrate, design section 7.2),
 `min_pwm`, `max_pwm`, `deadband`, `deadband_cmd`, `left_dir_sign`, `right_dir_sign`,
-`watchdog_s`, `fake_hardware`.
+`swap_motor_channels`, `watchdog_s`, `fake_hardware`.
+
+`swap_motor_channels` (default `true`) says which half of the H-bridge drives which wheel:
+on this chassis group A (`ENA`/`IN1`-`IN2`) is wired to the **right** wheel and group B
+(`ENB`/`IN3`-`IN4`) to the **left** one. With the groups the other way round `linear.x`
+still looks right but the turn sign is inverted — that is how it was diagnosed on the Pi.
 
 Pi dependencies: `rclpy`, `geometry_msgs`, `std_msgs`, `RPi.GPIO`, `Adafruit_PCA9685`. No
 Vicon, no numpy-heavy code. Without the GPIO modules the node runs with `FakeHardware`
@@ -24,4 +29,5 @@ Vicon, no numpy-heavy code. Without the GPIO modules the node runs with `FakeHar
 # on the Pi (same ROS_DOMAIN_ID as the PC)
 ros2 run osoyoo_base base_node
 ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{linear: {x: 0.15}}"   # must move toward subject +x
+ros2 topic pub --once /osoyoo_4/cmd_vel geometry_msgs/Twist "{angular: {z: 0.5}}"  # must turn CCW (to its left)
 ```
