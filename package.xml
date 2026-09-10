@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>osoyoo_base</name>
+  <version>0.1.0</version>
+  <description>Osoyoo differential-drive actuation node (Raspberry Pi, PCA9685 H-bridge): Twist to PWM with watchdog and e-stop.</description>
+  <maintainer email="sindisomkhatshwa@gmail.com">Sindiso Mkhatshwa</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
