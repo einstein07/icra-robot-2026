@@ -6,6 +6,9 @@ motors when no Twist has arrived for ``watchdog_s`` (0.3 s).  ``/osoyoo_4/wheel_
 (std_msgs/Float64MultiArray ``[left, right]`` in [-1, 1]) drives the wheels directly for
 the motor calibration script.  ``stopcar`` + ``GPIO.cleanup()`` in ``destroy_node``.
 
+The Twist stream is BEST_EFFORT / KEEP_LAST(1) (``CMD_QOS`` below, matched by
+``ra_embodied.qos.CMD_QOS``); ``/estop`` and ``/wheel_cmd`` keep the default reliable QoS.
+
 No Vicon, no model, no vicon_receiver dependency: only rclpy, geometry_msgs, std_msgs and
 the motor layer.  Without ``RPi.GPIO`` / ``Adafruit_PCA9685`` the node runs with
 :class:`FakeHardware` (parameter ``fake_hardware:=true`` forces it).
@@ -16,9 +19,24 @@ from __future__ import annotations
 import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool, Float64MultiArray
 
 from .motors import MotorParams, custom_speed, diff_drive_mix, setup, stopcar
+
+# The velocity stream is a sampled signal at the tracker's rate, not a sequence of events:
+# only the newest Twist is worth anything.  RELIABLE + KEEP_LAST(1) made Fast DDS retransmit
+# Twists this reader had no room for, which floods
+#   [RTPS_MSG_IN Error] Problem reserving CacheChange in reader: ... -> processDataMsg
+# Best-effort has nothing to retransmit; a stall just means no command for that interval and
+# the watchdog below stops the wheels.  ra_embodied.qos.CMD_QOS is the same profile on the
+# publisher side and the two MUST stay in sync: a best-effort publisher does not match a
+# reliable subscriber at all, and no Twist is delivered.
+CMD_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
+)
 
 
 class OsoyooBase(Node):
@@ -61,7 +79,7 @@ class OsoyooBase(Node):
         self.last_wheels = ((0, 0), (0, 0))
         self.n_cmds = 0
         self.n_ignored = 0
-        self.create_subscription(Twist, self.get_parameter("cmd_vel_topic").value, self.cmd_cb, 1)
+        self.create_subscription(Twist, self.get_parameter("cmd_vel_topic").value, self.cmd_cb, CMD_QOS)
         self.create_subscription(Float64MultiArray, self.get_parameter("wheel_cmd_topic").value, self.wheel_cb, 1)
         self.create_subscription(Bool, self.get_parameter("estop_topic").value, self.estop_cb, 1)
         self.create_timer(1.0 / float(self.get_parameter("watchdog_rate_hz").value), self.watchdog)

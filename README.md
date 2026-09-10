@@ -21,6 +21,13 @@ on this chassis group A (`ENA`/`IN1`-`IN2`) is wired to the **right** wheel and 
 (`ENB`/`IN3`-`IN4`) to the **left** one. With the groups the other way round `linear.x`
 still looks right but the turn sign is inverted — that is how it was diagnosed on the Pi.
 
+The `cmd_vel` stream uses BEST_EFFORT / KEEP_LAST(1) QoS (`CMD_QOS` in `base_node.py`,
+matched by `ra_embodied.qos.CMD_QOS`): reliable delivery of a 50 Hz sampled signal only
+produced `Problem reserving CacheChange in reader` floods from Fast DDS. Both ends must
+carry the same profile — a best-effort publisher does not match a reliable subscriber, so
+**update the Pi before the PC** when rolling this out. `/estop` and `/wheel_cmd` stay
+reliable.
+
 Pi dependencies: `rclpy`, `geometry_msgs`, `std_msgs`, `RPi.GPIO`, `Adafruit_PCA9685`. No
 Vicon, no numpy-heavy code. Without the GPIO modules the node runs with `FakeHardware`
 (logs PWM values), which is what `test/test_plumbing.py` uses on the PC.

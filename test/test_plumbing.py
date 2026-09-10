@@ -12,7 +12,7 @@ rclpy = pytest.importorskip("rclpy")
 from geometry_msgs.msg import Twist  # noqa: E402
 from std_msgs.msg import Bool, Float64MultiArray  # noqa: E402
 
-from osoyoo_base.base_node import OsoyooBase  # noqa: E402
+from osoyoo_base.base_node import CMD_QOS, OsoyooBase  # noqa: E402
 from osoyoo_base.motors import (  # noqa: E402
     FakeHardware,
     MotorParams,
@@ -67,7 +67,7 @@ def test_node_plumbing(ros_context):
     node = OsoyooBase(hardware=hw)
     node.set_parameters([rclpy.parameter.Parameter("watchdog_s", value=0.3)])
     tester = rclpy.create_node("plumbing_tester")
-    cmd_pub = tester.create_publisher(Twist, "/osoyoo_4/cmd_vel", 1)
+    cmd_pub = tester.create_publisher(Twist, "/osoyoo_4/cmd_vel", CMD_QOS)
     wheel_pub = tester.create_publisher(Float64MultiArray, "/osoyoo_4/wheel_cmd", 1)
     estop_pub = tester.create_publisher(Bool, "/estop", 1)
     executor = rclpy.executors.SingleThreadedExecutor()
