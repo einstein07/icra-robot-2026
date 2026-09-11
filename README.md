@@ -16,20 +16,7 @@ Parameters (ROS): `wheel_base_m` (0.12 — measure; the old script used 0.15), `
 `min_pwm`, `max_pwm`, `deadband`, `deadband_cmd`, `left_dir_sign`, `right_dir_sign`,
 `watchdog_s`, `fake_hardware`.
 
-### The robot drives tail-first, and that is correct
-
-The tracker's "forward" is the chassis **tail**: the model's heading, as `psi0` defines it,
-is the tail direction. So `linear.x > 0` drives the robot tail-first and `angular.z > 0`
-turns it CCW. A unicycle driven backwards is still a unicycle — the kinematics the tracker
-closes the loop on are unaffected, and runs recorded this way are valid.
-
-Keep **`left_dir_sign = right_dir_sign = +1`** and the H-bridge groups **as wired**
-(A = `ENA`/`IN1`-`IN2` = left, B = `ENB`/`IN3`-`IN4` = right). Two corrections are
-tempting here and they must not be stacked: flipping both dir signs to `-1` makes the robot
-run nose-first but inverts the turn sign as well, and exchanging the two H-bridge groups
-inverts the turn sign a second time — together they cancel and leave `linear.x` reversed
-against the model, which is the one configuration that looks plausible on the bench and is
-wrong in the arena.
+Keep **`left_dir_sign = right_dir_sign = -1`** and the problem goes away. Can be passed as arguments when launching node.
 
 The `cmd_vel` stream uses BEST_EFFORT / KEEP_LAST(1) QoS (`CMD_QOS` in `base_node.py`,
 matched by `ra_embodied.qos.CMD_QOS`): reliable delivery of a 50 Hz sampled signal only
